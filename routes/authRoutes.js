@@ -1,10 +1,13 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-require("dotenv").config();
 
 const router = express.Router();
+
+// Register Page
+router.get("/register", (req, res) => {
+  res.render("register", { message: "" });
+});
 
 // Register User
 router.post("/register", async (req, res) => {
@@ -14,9 +17,9 @@ router.post("/register", async (req, res) => {
   try {
     const user = new User({ name, email, password: hashedPassword, role });
     await user.save();
-    res.status(201).json({ message: "User registered successfully" });
+    res.redirect("/");
   } catch (error) {
-    res.status(400).json({ message: "Error registering user" });
+    res.render("register", { message: "Email already exists" });
   }
 });
 
@@ -26,11 +29,15 @@ router.post("/login", async (req, res) => {
   const user = await User.findOne({ email });
 
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ message: "Invalid credentials" });
+    return res.render("index", { message: "Invalid credentials" });
   }
 
-  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
-  res.json({ token, role: user.role });
+  req.session.user = user;
+  if (user.role === "admin") {
+    res.redirect("/leaves/admin");
+  } else {
+    res.redirect("/leaves");
+  }
 });
 
 module.exports = router;

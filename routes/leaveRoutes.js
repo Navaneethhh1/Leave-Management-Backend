@@ -1,46 +1,55 @@
 const express = require("express");
-const authMiddleware = require("../middleware/authMiddleware");
 const Leave = require("../models/Leave");
 const User = require("../models/User");
 
 const router = express.Router();
 
+// Apply Leave Page
+router.get("/", (req, res) => {
+  if (!req.session.user) return res.redirect("/");
+  res.render("applyLeave", { user: req.session.user, message: "" });
+});
+
 // Apply Leave
-router.post("/apply", authMiddleware, async (req, res) => {
+router.post("/apply", async (req, res) => {
+  if (!req.session.user) return res.redirect("/");
+
   const { type, startDate, endDate } = req.body;
-  const user = await User.findById(req.user.id);
+  const user = await User.findById(req.session.user._id);
 
   if (user.leaveBalance[type] <= 0) {
-    return res.status(400).json({ message: "Insufficient leave balance" });
+    return res.render("applyLeave", { user, message: "Insufficient leave balance" });
   }
 
-  const leave = new Leave({ user: req.user.id, type, startDate, endDate });
+  const leave = new Leave({ user: user._id, type, startDate, endDate });
   await leave.save();
 
   user.leaveBalance[type] -= 1;
   await user.save();
 
-  res.status(201).json({ message: "Leave applied successfully" });
+  res.redirect("/leaves");
 });
 
-// Get leave requests
-router.get("/", authMiddleware, async (req, res) => {
-  const leaves = await Leave.find({ user: req.user.id });
-  res.json(leaves);
+// View Leave Requests
+router.get("/requests", async (req, res) => {
+  if (!req.session.user) return res.redirect("/");
+  const leaves = await Leave.find({ user: req.session.user._id });
+  res.render("viewLeaves", { leaves });
 });
 
-// Admin: Approve/Reject leave
-router.put("/:id", authMiddleware, async (req, res) => {
-  if (req.user.role !== "admin") return res.status(403).json({ message: "Access denied" });
+// Admin Page: View All Leave Requests
+router.get("/admin", async (req, res) => {
+  if (!req.session.user || req.session.user.role !== "admin") return res.redirect("/");
+  const leaves = await Leave.find().populate("user");
+  res.render("adminDashboard", { leaves });
+});
 
+// Approve/Reject Leave (Admin)
+router.post("/admin/:id", async (req, res) => {
+  if (!req.session.user || req.session.user.role !== "admin") return res.redirect("/");
   const { status } = req.body;
-  const leave = await Leave.findById(req.params.id);
-  if (!leave) return res.status(404).json({ message: "Leave not found" });
-
-  leave.status = status;
-  await leave.save();
-
-  res.json({ message: `Leave ${status}` });
+  await Leave.findByIdAndUpdate(req.params.id, { status });
+  res.redirect("/leaves/admin");
 });
 
 module.exports = router;

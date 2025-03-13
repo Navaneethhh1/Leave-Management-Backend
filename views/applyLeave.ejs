@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><title>Apply Leave</title></head>
+<body>
+  <h2>Welcome, <%= user.name %></h2>
+  <p style="color: red;"><%= message %></p>
+  <form action="/leaves/apply" method="POST">
+    <select name="type">
+      <option value="casual">Casual Leave</option>
+      <option value="medical">Medical Leave</option>
+    </select><br>
+    <input type="date" name="startDate" required><br>
+    <input type="date" name="endDate" required><br>
+    <button type="submit">Apply</button>
+  </form>
+  <a href="/leaves/requests">View My Leaves</a> | <a href="/logout">Logout</a>
+</body>
+</html>
